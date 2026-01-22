@@ -1,0 +1,57 @@
+name: Build and Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    name: Build and Upload DMG
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build app
+        run: |
+          xcodebuild -scheme automute \
+            -configuration Release \
+            -archivePath build/AutoMute.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export app
+        run: |
+          mkdir -p build/app
+          cp -R build/AutoMute.xcarchive/Products/Applications/automute.app build/app/AutoMute.app
+
+      - name: Create DMG
+        run: |
+          # Create a temporary directory for DMG contents
+          mkdir -p build/dmg
+          cp -R build/app/AutoMute.app build/dmg/
+
+          # Create a symlink to Applications folder
+          ln -s /Applications build/dmg/Applications
+
+          # Create the DMG
+          hdiutil create -volname "AutoMute" \
+            -srcfolder build/dmg \
+            -ov -format UDZO \
+            build/AutoMute-${{ github.event.release.tag_name }}.dmg
+
+      - name: Upload DMG to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/AutoMute-${{ github.event.release.tag_name }}.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
