@@ -37,6 +37,9 @@ jobs:
           mkdir -p build/app
           cp -R build/AutoMute.xcarchive/Products/Applications/automute.app build/app/AutoMute.app
 
+      - name: Ad-hoc sign app
+        run: codesign --force --deep -s - build/app/AutoMute.app
+
       - name: Create DMG
         run: |
           # Create a temporary directory for DMG contents
