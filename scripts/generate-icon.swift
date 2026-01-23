@@ -15,11 +15,27 @@ let sizes: [(size: Int, scale: Int, name: String)] = [
     (512, 2, "icon_512x512@2x"),
 ]
 
-func generateIcon(size: Int, scale: Int) -> NSImage? {
+func generateIcon(size: Int, scale: Int) -> Data? {
     let pixelSize = size * scale
-    let image = NSImage(size: NSSize(width: pixelSize, height: pixelSize))
 
-    image.lockFocus()
+    // Create bitmap with exact pixel dimensions
+    guard let bitmap = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: pixelSize,
+        pixelsHigh: pixelSize,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else { return nil }
+
+    bitmap.size = NSSize(width: pixelSize, height: pixelSize)
+
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
 
     let rect = NSRect(x: 0, y: 0, width: pixelSize, height: pixelSize)
     let cornerRadius = CGFloat(pixelSize) * 0.22
@@ -33,7 +49,8 @@ func generateIcon(size: Int, scale: Int) -> NSImage? {
     gradient?.draw(in: path, angle: -45)
 
     // SF Symbol
-    let config = NSImage.SymbolConfiguration(pointSize: CGFloat(pixelSize) * 0.45, weight: .medium)
+    let symbolPointSize = CGFloat(pixelSize) * 0.45
+    let config = NSImage.SymbolConfiguration(pointSize: symbolPointSize, weight: .medium)
     if let symbol = NSImage(systemSymbolName: "speaker.slash.fill", accessibilityDescription: nil)?
         .withSymbolConfiguration(config) {
 
@@ -41,22 +58,15 @@ func generateIcon(size: Int, scale: Int) -> NSImage? {
         let x = (CGFloat(pixelSize) - symbolSize.width) / 2
         let y = (CGFloat(pixelSize) - symbolSize.height) / 2
 
-        NSColor.white.setFill()
-        symbol.draw(in: NSRect(x: x, y: y, width: symbolSize.width, height: symbolSize.height),
-                    from: .zero, operation: .destinationOver, fraction: 1.0)
-
-        let tinted = NSImage(size: symbolSize)
-        tinted.lockFocus()
+        // Draw white symbol
         NSColor.white.set()
-        symbol.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1.0)
-        NSRect(origin: .zero, size: symbolSize).fill(using: .sourceIn)
-        tinted.unlockFocus()
-
-        tinted.draw(at: NSPoint(x: x, y: y), from: .zero, operation: .sourceOver, fraction: 1.0)
+        symbol.draw(in: NSRect(x: x, y: y, width: symbolSize.width, height: symbolSize.height),
+                    from: .zero, operation: .sourceOver, fraction: 1.0)
     }
 
-    image.unlockFocus()
-    return image
+    NSGraphicsContext.restoreGraphicsState()
+
+    return bitmap.representation(using: .png, properties: [:])
 }
 
 let scriptDir = URL(fileURLWithPath: #file).deletingLastPathComponent()
@@ -64,14 +74,10 @@ let iconsetPath = scriptDir.deletingLastPathComponent()
     .appendingPathComponent("automute/Resources/Assets.xcassets/AppIcon.appiconset")
 
 for info in sizes {
-    if let image = generateIcon(size: info.size, scale: info.scale) {
-        guard let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let png = bitmap.representation(using: .png, properties: [:]) else { continue }
-
+    if let pngData = generateIcon(size: info.size, scale: info.scale) {
         let file = iconsetPath.appendingPathComponent("\(info.name).png")
-        try? png.write(to: file)
-        print("Generated \(info.name).png")
+        try? pngData.write(to: file)
+        print("Generated \(info.name).png (\(info.size * info.scale)x\(info.size * info.scale) pixels)")
     }
 }
 print("Done!")
