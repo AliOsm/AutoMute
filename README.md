@@ -6,6 +6,7 @@ A lightweight macOS menu bar app that automatically mutes your system audio when
 
 - **Inactivity Detection** — Automatically mutes audio after a configurable period of no keyboard/mouse activity
 - **Screen Lock Detection** — Instantly mutes when you lock your screen (Cmd+Ctrl+Q)
+- **Audio Activity Awareness** — Skips idle mute when audio is playing or microphone is in use (e.g., meetings, videos)
 - **Smart Unmute** — Optionally unmutes when you return or unlock
 - **Respects Manual Mute** — If you muted before going idle, it won't unmute on return
 - **Live Idle Timer** — See your current idle time in the menu bar popup
@@ -57,6 +58,8 @@ Access settings via the menu bar popup or the Settings window:
 | Inactivity Timeout | Minutes of idle time before muting | 5 min |
 | Mute on Inactivity | Mute when idle threshold is reached | On |
 | Mute on Screen Lock | Mute when screen locks | On |
+| Don't mute when audio is playing | Skip idle mute if audio output is active | On |
+| Don't mute when microphone is in use | Skip idle mute if mic input is active | On |
 | Unmute on Activity | Unmute when keyboard/mouse activity detected | On |
 | Unmute on Screen Unlock | Unmute when screen unlocks | On |
 
@@ -67,6 +70,7 @@ AutoMute uses native macOS APIs with no special permissions required:
 - **Idle Detection**: Uses `CGEventSource.secondsSinceLastEventType` to detect keyboard/mouse inactivity
 - **Screen Lock Detection**: Listens to `com.apple.screenIsLocked` / `com.apple.screenIsUnlocked` distributed notifications
 - **Audio Control**: Uses CoreAudio's `kAudioDevicePropertyMute` to mute/unmute the default output device
+- **Audio Activity Detection**: Uses CoreAudio's `kAudioDevicePropertyDeviceIsRunningSomewhere` to detect active audio streams on input and output devices
 - **Device Changes**: Automatically handles audio device switches (e.g., connecting headphones)
 
 ### Edge Cases Handled
@@ -75,6 +79,10 @@ AutoMute uses native macOS APIs with no special permissions required:
 |----------|----------|
 | You mute before going idle | Won't auto-unmute when you return |
 | You unmute while auto-muted | Respects your choice, clears auto-mute state |
+| Audio playing while idle | Suppresses mute, shows blue "Audio Active" status |
+| Audio stops while still idle | Mutes immediately without restarting timer |
+| Screen locks during audio playback | Mutes immediately (screen lock always mutes) |
+| Audio starts after already idle-muted | Stays muted (no auto-unmute) |
 | Screen locks while idle-muted | Stays muted, updates reason to screen lock |
 | Audio device changes while muted | Re-applies mute to new device |
 
@@ -105,7 +113,7 @@ automute/
 ├── App/
 │   └── AutomuteApp.swift          # Main entry point
 ├── Core/
-│   ├── AudioController.swift      # CoreAudio mute/unmute
+│   ├── AudioController.swift      # CoreAudio mute/unmute & activity detection
 │   ├── InactivityMonitor.swift    # Idle time detection
 │   ├── ScreenLockMonitor.swift    # Lock/unlock detection
 │   └── AutomuteEngine.swift       # Main orchestrator
