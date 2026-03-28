@@ -18,6 +18,8 @@ final class AutomuteEngine: ObservableObject {
     @AppStorage("muteOnScreenLock") var muteOnScreenLock = true
     @AppStorage("unmuteOnActivity") var unmuteOnActivity = true
     @AppStorage("unmuteOnUnlock") var unmuteOnUnlock = true
+    @AppStorage("skipMuteWhenAudioPlaying") var skipMuteWhenAudioPlaying = true
+    @AppStorage("skipMuteWhenMicInUse") var skipMuteWhenMicInUse = true
 
     @AppStorage("inactivityMinutes") var inactivityMinutes = 5 {
         didSet { inactivityMonitor.updateThreshold(minutes: inactivityMinutes) }
@@ -31,6 +33,7 @@ final class AutomuteEngine: ObservableObject {
 
     private var wasManuallyMutedBeforeAutoMute = false
     private var autoMuteReason: MuteReason?
+    private var isIdleButAudioActive = false
 
     // MARK: - Dependencies
 
@@ -105,6 +108,14 @@ final class AutomuteEngine: ObservableObject {
         audioController.onDeviceChanged = { [weak self] in
             self?.handleAudioDeviceChanged()
         }
+
+        audioController.onAudioActivityChanged = { [weak self] in
+            self?.handleAudioActivityChanged()
+        }
+
+        audioController.onInputActivityChanged = { [weak self] in
+            self?.handleAudioActivityChanged()
+        }
     }
 
     private func startMonitoring() {
@@ -147,7 +158,9 @@ final class AutomuteEngine: ObservableObject {
 
         // Update state if we're not muted and not screen locked
         if autoMuteReason == nil && !screenLockMonitor.isScreenLocked {
-            if idleTime > 0 {
+            if isIdleButAudioActive {
+                state = .idleAudioActive(seconds: idleTime)
+            } else if idleTime > 0 {
                 state = .idle(seconds: idleTime)
             } else {
                 state = .active
@@ -158,6 +171,13 @@ final class AutomuteEngine: ObservableObject {
     private func handleInactivityThresholdReached() {
         guard isEnabled && muteOnInactivity else { return }
         guard autoMuteReason == nil else { return } // Already auto-muted
+
+        // Skip mute if audio is actively streaming
+        if isAudioActivityBlockingMute() {
+            isIdleButAudioActive = true
+            state = .idleAudioActive(seconds: currentIdleTime)
+            return
+        }
 
         // Check if user manually muted before we auto-mute
         wasManuallyMutedBeforeAutoMute = audioController.isMuted()
@@ -172,6 +192,7 @@ final class AutomuteEngine: ObservableObject {
     private func handleActivityDetected() {
         guard isEnabled else { return }
 
+        isIdleButAudioActive = false
         currentIdleTime = 0
 
         // Only unmute if we muted due to inactivity
@@ -223,6 +244,24 @@ final class AutomuteEngine: ObservableObject {
         }
 
         state = .active
+    }
+
+    private func isAudioActivityBlockingMute() -> Bool {
+        if skipMuteWhenAudioPlaying && audioController.isAudioOutputActive() { return true }
+        if skipMuteWhenMicInUse && audioController.isAudioInputActive() { return true }
+        return false
+    }
+
+    private func handleAudioActivityChanged() {
+        // Only relevant if we're in the suppressed state
+        guard isIdleButAudioActive else { return }
+
+        // If audio is still blocking, nothing to do
+        if isAudioActivityBlockingMute() { return }
+
+        // Audio stopped while user is still idle — mute now
+        isIdleButAudioActive = false
+        handleInactivityThresholdReached()
     }
 
     private func handleExternalMuteStateChange(_ muted: Bool) {

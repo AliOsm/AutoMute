@@ -5,6 +5,7 @@ enum MonitoringState: Equatable {
     case disabled
     case active
     case idle(seconds: TimeInterval)
+    case idleAudioActive(seconds: TimeInterval)
     case muted(reason: MuteReason)
     case screenLocked
 
@@ -16,6 +17,8 @@ enum MonitoringState: Equatable {
             return "Active"
         case .idle(let seconds):
             return "Idle (\(formatTime(seconds)))"
+        case .idleAudioActive(let seconds):
+            return "Idle (\(formatTime(seconds))) - Audio Active"
         case .muted(let reason):
             return "Muted (\(reason.displayName))"
         case .screenLocked:
@@ -31,6 +34,8 @@ enum MonitoringState: Equatable {
             return .green
         case .idle:
             return .orange
+        case .idleAudioActive:
+            return .blue
         case .muted, .screenLocked:
             return .red
         }
@@ -44,6 +49,8 @@ enum MonitoringState: Equatable {
             return "speaker.wave.2.fill"
         case .idle:
             return "speaker.wave.2"
+        case .idleAudioActive:
+            return "speaker.wave.2.fill"
         case .muted:
             return "speaker.slash.fill"
         case .screenLocked:
@@ -63,4 +70,5 @@ enum StatusColor {
     case orange
     case red
     case gray
+    case blue
 }

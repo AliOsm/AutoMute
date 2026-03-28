@@ -24,6 +24,8 @@ struct StatusIndicatorView: View {
             return .red
         case .gray:
             return .gray
+        case .blue:
+            return .blue
         }
     }
 }
@@ -33,6 +35,7 @@ struct StatusIndicatorView: View {
         StatusIndicatorView(state: .active)
         StatusIndicatorView(state: .disabled)
         StatusIndicatorView(state: .idle(seconds: 154))
+        StatusIndicatorView(state: .idleAudioActive(seconds: 312))
         StatusIndicatorView(state: .muted(reason: .inactivity))
         StatusIndicatorView(state: .screenLocked)
     }

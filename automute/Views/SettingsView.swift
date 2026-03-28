@@ -22,7 +22,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 400, height: 250)
+        .frame(width: 400, height: 310)
     }
 }
 
@@ -74,6 +74,11 @@ struct BehaviorSettingsView: View {
             Section("Mute Triggers") {
                 Toggle("Mute on Inactivity", isOn: $engine.muteOnInactivity)
                 Toggle("Mute on Screen Lock", isOn: $engine.muteOnScreenLock)
+            }
+
+            Section("Audio Activity") {
+                Toggle("Don't mute when audio is playing", isOn: $engine.skipMuteWhenAudioPlaying)
+                Toggle("Don't mute when microphone is in use", isOn: $engine.skipMuteWhenMicInUse)
             }
 
             Section("Unmute Behavior") {
